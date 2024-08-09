@@ -1,0 +1,42 @@
+pipeline {
+    agent any
+    environment {
+        MAVEN_HOME = tool 'Maven 3.8.1' // Adjust according to your Maven installation
+        PATH = "${env.MAVEN_HOME}/bin:${env.PATH}"
+        TOMCAT_USER = credentials('tomcat-username')
+        TOMCAT_PASSWORD = credentials('tomcat-password')
+        TOMCAT_URL = 'http://your-server-ip:8080'
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/your-username/your-repo.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage('Deploy to Tomcat') {
+            steps {
+                script {
+                    def warFile = findFiles(glob: '**/target/*.war')[0]
+                    sh """
+                        curl --upload-file ${warFile.path} \
+                        --user ${TOMCAT_USER}:${TOMCAT_PASSWORD} \
+                        ${TOMCAT_URL}/manager/text/deploy?path=/my-webapp&update=true
+                    """
+                }
+            }
+        }
+    }
+    post {
+        success {
+            echo 'Build and Deployment successful!'
+        }
+        failure {
+            echo 'Build or Deployment failed!'
+        }
+    }
+}
